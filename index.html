@@ -171,6 +171,9 @@ textarea{resize:vertical;min-height:60px}
   .stat-card{min-width:auto}
   .view-header{flex-direction:column;align-items:flex-start}
 }
+.data-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px}.data-tools small{color:#64748b}
+#save-notice{position:fixed;top:16px;right:16px;z-index:2000;max-width:calc(100vw - 32px);padding:12px 18px;border-radius:10px;color:#166534;background:#dcfce7;border:1px solid #86efac;box-shadow:0 4px 16px #0002}
+#save-notice.error{color:#991b1b;background:#fee2e2;border-color:#fca5a5}
 </style>
 </head>
 <body>
@@ -199,7 +202,15 @@ textarea{resize:vertical;min-height:60px}
 </nav>
 
 <!-- SECTION: main -->
+<div id="save-notice" role="status" aria-live="polite" hidden></div>
 <div id="main">
+  <div class="data-tools">
+    <button class="btn-secondary" onclick="exportBackup()">导出备份</button>
+    <button class="btn-secondary" onclick="document.getElementById('backup-file').click()">导入备份</button>
+    <button class="btn-secondary" id="undo-delete" onclick="undoDelete()" disabled>撤销删除</button>
+    <input id="backup-file" type="file" accept=".json,application/json" hidden onchange="importBackup(this)">
+    <small>建议定期导出备份；撤销仅适用于本次打开期间的删除。</small>
+  </div>
 
   <!-- SECTION: delivery-view -->
   <div id="view-delivery" class="view active">
@@ -293,8 +304,81 @@ function initMockData(){
 }
 
 /* SECTION: storage */
-function saveData(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch(e){}}
-function loadData(){try{var d=localStorage.getItem(STORAGE_KEY);if(d){state=JSON.parse(d);return true}}catch(e){}return false}
+var noticeTimer,deleteHistory=[],lastSaved=null,storageReadFailed=false;
+function notifySave(message,error){
+  var el=document.getElementById('save-notice');clearTimeout(noticeTimer);el.textContent=message;
+  el.className=error?'error':'';el.setAttribute('role',error?'alert':'status');el.hidden=false;
+  if(!error)noticeTimer=setTimeout(function(){el.hidden=true},3500);
+}
+function saveData(message){
+  try{if(storageReadFailed)throw Error('读取异常');var serialized=JSON.stringify(state);localStorage.setItem(STORAGE_KEY,serialized);lastSaved=serialized;notifySave(message||'保存成功',false);return true}
+  catch(e){if(lastSaved!==null)state=JSON.parse(lastSaved);notifySave('保存失败：存储不可用、空间不足或原数据读取异常。请导出备份并检查浏览器设置。',true);return false}
+}
+function loadData(){
+  try{var d=localStorage.getItem(STORAGE_KEY);if(d!==null){state=validateBackup(JSON.parse(d));lastSaved=JSON.stringify(state);return true}}
+  catch(e){storageReadFailed=true;notifySave('读取失败：原数据未覆盖，请保留原数据并尝试导入有效备份。',true);return 'error'}
+  return false;
+}
+function refreshViews(){renderDelivery();renderReviews();renderOffers()}
+function updateUndo(){document.getElementById('undo-delete').disabled=!deleteHistory.length}
+function deleteRecords(kind,id){
+  var previous=JSON.parse(JSON.stringify(state)),removed={};
+  ['applications','reviews','offers'].forEach(function(key){
+    removed[key]=[];state[key]=state[key].filter(function(row,index){
+      var match=key===kind&&row.id===id||kind==='applications'&&key!=='applications'&&row.applicationId===id;
+      if(match)removed[key].push({index:index,row:row});return !match;
+    });
+  });
+  if(!saveData('删除已保存，可点击“撤销删除”恢复')){state=previous;refreshViews();return}
+  deleteHistory.push(removed);updateUndo();refreshViews();
+}
+function undoDelete(){
+  if(!deleteHistory.length)return;
+  var previous=JSON.parse(JSON.stringify(state)),removed=deleteHistory[deleteHistory.length-1];
+  ['applications','reviews','offers'].forEach(function(key){removed[key].forEach(function(item){
+    if(!state[key].some(function(row){return row.id===item.row.id}))state[key].splice(Math.min(item.index,state[key].length),0,item.row);
+  })});
+  if(!saveData('撤销成功，记录已恢复并保存')){state=previous;return}
+  deleteHistory.pop();updateUndo();refreshViews();
+}
+function validateBackup(data){
+  if(!data||typeof data!=='object')throw Error('备份格式无效');
+  if(Object.prototype.hasOwnProperty.call(data,'version')){
+    if(data.version!==1||data.app!=='career-workbench')throw Error('不支持此备份版本');data=data.data;
+  }
+  if(!data||!data.weights||['salary','housing','intensity','growth'].some(function(k){return !Number.isFinite(data.weights[k])||data.weights[k]<0||data.weights[k]>5}))throw Error('权重无效');
+  var fields={applications:['company','position','city','channel','applyDate','stage','nextStep','notes'],reviews:['applicationId','round','date','questions','answers','improvements'],offers:['applicationId','company','position','city']};
+  Object.keys(fields).forEach(function(key){
+    if(!Array.isArray(data[key]))throw Error('缺少记录列表');
+    var ids=new Set();data[key].forEach(function(row){
+      if(!row||typeof row.id!=='string'||!row.id||ids.has(row.id)||fields[key].some(function(k){return typeof row[k]!=='string'}))throw Error('记录无效或编号重复');ids.add(row.id);
+      if(key==='applications'&&(STAGES.indexOf(row.stage)<0||!Array.isArray(row.events)||row.events.some(function(e){return !e||['date','type','label'].some(function(k){return typeof e[k]!=='string'})})))throw Error('投递记录无效');
+      if(key==='reviews'&&(!Array.isArray(row.questionTypes)||row.questionTypes.some(function(t){return QUESTION_TYPES.indexOf(t)<0})))throw Error('题型无效');
+      if(key==='offers'&&['monthlySalary','months','housingRatio','intensity','growth'].some(function(k){return !Number.isFinite(row[k])||row[k]<0}))throw Error('Offer 数值无效');
+    });
+  });
+  var ids=new Set(data.applications.map(function(a){return a.id}));
+  if(data.reviews.concat(data.offers).some(function(r){return !ids.has(r.applicationId)}))throw Error('关联投递不存在');
+  return JSON.parse(JSON.stringify(data));
+}
+function exportBackup(){
+  try{
+    var blob=new Blob([JSON.stringify({app:'career-workbench',version:1,exportedAt:new Date().toISOString(),data:state},null,2)],{type:'application/json'});
+    var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='求职工作台备份-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url)},1000);notifySave('备份下载已发起，请确认文件已保存。',false);
+  }catch(e){notifySave('导出失败：'+e.message,true)}
+}
+async function importBackup(input){
+  var file=input.files[0];input.value='';if(!file)return;
+  try{
+    if(file.size>10*1024*1024)throw Error('文件超过 10 MB');
+    var next=validateBackup(JSON.parse((await file.text()).replace(/^\uFEFF/,'')));
+    if(!confirm('导入将替换全部数据（'+next.applications.length+' 条投递、'+next.reviews.length+' 条复盘、'+next.offers.length+' 条 Offer）。建议先导出当前备份。是否继续？'))return;
+    var previous=state,previousReadFailed=storageReadFailed;state=next;storageReadFailed=false;
+    if(!saveData('导入成功，数据已保存')){state=previous;storageReadFailed=previousReadFailed;return}
+    deleteHistory=[];updateUndo();refreshViews();
+  }catch(e){notifySave('导入失败：'+e.message+'。当前数据未替换。',true)}
+}
 
 /* SECTION: utils */
 function genId(){return 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
@@ -509,7 +593,7 @@ function renderReviewList(){
     if(rev.questionTypes&&rev.questionTypes.length>0){var tags=document.createElement('div');tags.className='review-tags';rev.questionTypes.forEach(function(t){var tag=document.createElement('span');tag.className='review-tag '+t;tag.textContent=QUESTION_TYPE_LABELS[t]||t;tags.appendChild(tag)});card.appendChild(tags)}
     var delRow=document.createElement('div');delRow.style.cssText='margin-top:10px;text-align:right';
     var delBtn=document.createElement('button');delBtn.className='btn-danger';delBtn.textContent='删除';
-    delBtn.addEventListener('click',function(){state.reviews=state.reviews.filter(function(r){return r.id!==rev.id});saveData();renderReviewList()});
+    delBtn.addEventListener('click',function(){deleteRecords('reviews',rev.id)});
     delRow.appendChild(delBtn);card.appendChild(delRow);
     listEl.appendChild(card);
   });
@@ -561,7 +645,7 @@ function renderOffers(){
     var tdGr=document.createElement('td');tdGr.textContent=o.growth+'/5';tr.appendChild(tdGr);
     var tdSc=document.createElement('td');tdSc.className='score-cell';tdSc.textContent=item.weightedScore.toFixed(1);tdSc.style.color='#3b82f6';tr.appendChild(tdSc);
     var tdDel=document.createElement('td');var delBtn=document.createElement('button');delBtn.className='btn-danger';delBtn.textContent='删除';
-    delBtn.addEventListener('click',function(){state.offers=state.offers.filter(function(x){return x.id!==o.id});saveData();renderOffers()});
+    delBtn.addEventListener('click',function(){deleteRecords('offers',o.id)});
     tdDel.appendChild(delBtn);tr.appendChild(tdDel);
     tbody.appendChild(tr);
   });
@@ -636,14 +720,11 @@ function saveApp(editId){
     data.id=genId();data.events=[];
     state.applications.push(data);
   }
-  saveData();closeModal();renderDelivery();
+  if(!saveData())return;closeModal();renderDelivery();
 }
 function deleteApp(id){
   if(!confirm('确定删除这条投递记录？'))return;
-  state.applications=state.applications.filter(function(a){return a.id!==id});
-  state.reviews=state.reviews.filter(function(r){return r.applicationId!==id});
-  state.offers=state.offers.filter(function(o){return o.applicationId!==id});
-  saveData();renderDelivery();
+  deleteRecords('applications',id);
 }
 
 function openReviewModal(){
@@ -678,7 +759,7 @@ function saveReview(){
     improvements:document.getElementById('f-improve').value.trim(),
     questionTypes:types
   };
-  state.reviews.push(rev);saveData();closeModal();renderReviews();
+  state.reviews.push(rev);if(!saveData())return;closeModal();renderReviews();
 }
 
 function openOfferModal(){
@@ -724,12 +805,12 @@ function saveOffer(){
     intensity:parseInt(document.getElementById('f-off-intensity').value)||3,
     growth:parseInt(document.getElementById('f-off-growth').value)||3
   };
-  state.offers.push(offer);saveData();closeModal();renderOffers();
+  state.offers.push(offer);if(!saveData())return;closeModal();renderOffers();
 }
 
 /* SECTION: init */
 function init(){
-  if(!loadData()){initMockData();saveData()}
+  if(loadData()===false){initMockData();saveData()}
   switchView('delivery');
 }
 init();

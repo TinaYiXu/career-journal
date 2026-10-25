@@ -268,16 +268,16 @@ var state={applications:[],reviews:[],offers:[],weights:{salary:3,housing:2,inte
 /* SECTION: mock-data */
 function initMockData(){
   state.applications=[
-    {id:'a1',company:'A银行',position:'总行管培生',city:'上海',channel:'官网',applyDate:'2026-10-05',stage:'first',nextStep:'等待一面结果',notes:'笔试已通过',events:[]},
-    {id:'a2',company:'B咨询',position:'初级顾问',city:'北京',channel:'内推',applyDate:'2026-10-08',stage:'second',nextStep:'准备案例面试',notes:'合伙人推荐',events:[{date:'2026-10-28',type:'interview',label:'二面 14:00'}]},
-    {id:'a3',company:'C快消',position:'品牌经理',city:'广州',channel:'招聘平台',applyDate:'2026-10-01',stage:'offer',nextStep:'考虑是否接受',notes:'已发offer 年薪22万',events:[]},
-    {id:'a4',company:'D科技',position:'产品经理',city:'深圳',channel:'官网',applyDate:'2026-10-10',stage:'applied',nextStep:'等待简历筛选',notes:'',events:[]},
-    {id:'a5',company:'E证券',position:'行业研究员',city:'上海',channel:'招聘平台',applyDate:'2026-10-12',stage:'test',nextStep:'准备在线测评',notes:'测评链接已发',events:[{date:'2026-10-26',type:'test',label:'在线笔试 10:00'}]},
-    {id:'a6',company:'F互联网',position:'数据分析师',city:'杭州',channel:'内推',applyDate:'2026-10-15',stage:'first',nextStep:'一面准备中',notes:'学长内推',events:[{date:'2026-10-28',type:'interview',label:'一面 10:00'}]},
-    {id:'a7',company:'G会计',position:'审计助理',city:'北京',channel:'官网',applyDate:'2026-10-18',stage:'hr',nextStep:'等待HR终面',notes:'二面已过',events:[{date:'2026-10-30',type:'interview',label:'HR面 15:00'}]},
-    {id:'a8',company:'H基金',position:'投资分析师',city:'上海',channel:'猎头',applyDate:'2026-10-03',stage:'rejected',nextStep:'无',notes:'一面后未通过',events:[]},
-    {id:'a9',company:'I保险',position:'精算师助理',city:'深圳',channel:'招聘平台',applyDate:'2026-10-20',stage:'second',nextStep:'二面准备',notes:'',events:[{date:'2026-10-29',type:'interview',label:'二面 11:00'}]},
-    {id:'a10',company:'J地产',position:'投资拓展',city:'成都',channel:'官网',applyDate:'2026-10-02',stage:'offer',nextStep:'已接受offer',notes:'年薪18万',events:[]}
+    {id:'a1',company:'A银行',position:'总行管培生',city:'上海',channel:'官网',applyDate:'2026-10-05',stage:'first',nextStep:'等待一面结果',notes:'笔试已通过',url:'https://career.abank.com.cn',events:[]},
+    {id:'a2',company:'B咨询',position:'初级顾问',city:'北京',channel:'内推',applyDate:'2026-10-08',stage:'second',nextStep:'准备案例面试',notes:'合伙人推荐',url:'https://www.bconsulting.com/careers',events:[{date:'2026-10-28',type:'interview',label:'二面 14:00'}]},
+    {id:'a3',company:'C快消',position:'品牌经理',city:'广州',channel:'招聘平台',applyDate:'2026-10-01',stage:'offer',nextStep:'考虑是否接受',notes:'已发offer 年薪22万',url:'https://www.cfmccampus.cn',events:[]},
+    {id:'a4',company:'D科技',position:'产品经理',city:'深圳',channel:'官网',applyDate:'2026-10-10',stage:'applied',nextStep:'等待简历筛选',notes:'',url:'https://careers.dtech.com',events:[]},
+    {id:'a5',company:'E证券',position:'行业研究员',city:'上海',channel:'招聘平台',applyDate:'2026-10-12',stage:'test',nextStep:'准备在线测评',notes:'测评链接已发',url:'https://www.esec.com/join',events:[{date:'2026-10-26',type:'test',label:'在线笔试 10:00'}]},
+    {id:'a6',company:'F互联网',position:'数据分析师',city:'杭州',channel:'内推',applyDate:'2026-10-15',stage:'first',nextStep:'一面准备中',notes:'学长内推',url:'https://job.finternet.com',events:[{date:'2026-10-28',type:'interview',label:'一面 10:00'}]},
+    {id:'a7',company:'G会计',position:'审计助理',city:'北京',channel:'官网',applyDate:'2026-10-18',stage:'hr',nextStep:'等待HR终面',notes:'二面已过',url:'https://www.gaccounting.cn/career',events:[{date:'2026-10-30',type:'interview',label:'HR面 15:00'}]},
+    {id:'a8',company:'H基金',position:'投资分析师',city:'上海',channel:'猎头',applyDate:'2026-10-03',stage:'rejected',nextStep:'无',notes:'一面后未通过',url:'https://www.hfund.com/join',events:[]},
+    {id:'a9',company:'I保险',position:'精算师助理',city:'深圳',channel:'招聘平台',applyDate:'2026-10-20',stage:'second',nextStep:'二面准备',notes:'',url:'https://career.iinsurance.com',events:[{date:'2026-10-29',type:'interview',label:'二面 11:00'}]},
+    {id:'a10',company:'J地产',position:'投资拓展',city:'成都',channel:'官网',applyDate:'2026-10-02',stage:'offer',nextStep:'已接受offer',notes:'年薪18万',url:'https://www.jrealestate.com/hr',events:[]}
   ];
   state.reviews=[
     {id:'r1',applicationId:'a1',round:'一面',date:'2026-10-20',questions:'请介绍一下你对银行业数字化转型的理解；如何看待金融科技对传统银行的冲击？',answers:'从移动支付、智能风控、开放银行三个角度展开',improvements:'对监管政策了解不够深入，需要补充银保监相关政策',questionTypes:['professional']},
@@ -380,6 +380,7 @@ function createCardEl(app){
   var dtTag=document.createElement('span');dtTag.className='card-tag date';dtTag.textContent=fmtDate(app.applyDate);meta.appendChild(dtTag);
   card.appendChild(meta);
   if(app.nextStep){var nx=document.createElement('div');nx.className='card-next';nx.textContent='下一步: '+app.nextStep;card.appendChild(nx)}
+  if(app.url){var urlDiv=document.createElement('div');urlDiv.className='card-next';urlDiv.style.color='#8b5cf6';var urlLink=document.createElement('a');urlLink.href=app.url;urlLink.target='_blank';urlLink.rel='noopener';urlLink.textContent='投递链接';urlLink.style.cssText='color:#8b5cf6;text-decoration:underline;font-size:12px';urlLink.addEventListener('click',function(e){e.stopPropagation()});urlDiv.appendChild(urlLink);card.appendChild(urlDiv)}
   var actions=document.createElement('div');actions.className='card-actions';
   var revBtn=document.createElement('button');revBtn.className='btn-secondary';revBtn.textContent='复盘';
   revBtn.addEventListener('click',function(e){e.stopPropagation();showCompanyReviews(app.id)});
@@ -606,6 +607,7 @@ function openAppModal(editId){
     +'<div><label>城市</label><input id="f-city" value="'+(app?app.city:'')+'" placeholder="如：上海"></div></div></div>'
     +'<div class="form-group"><div class="form-row"><div><label>投递渠道</label><select id="f-channel">'+channelOpts+'</select></div>'
     +'<div><label>投递日期</label><input type="date" id="f-date" value="'+(app?app.applyDate:'')+'"></div></div></div>'
+    +'<div class="form-group"><label>投递网址</label><input id="f-url" type="url" value="'+(app&&app.url?app.url:'')+'" placeholder="如：https://career.example.com/job/123"></div>'
     +'<div class="form-group"><div class="form-row"><div><label>当前阶段</label><select id="f-stage">'+stageOpts+'</select></div>'
     +'<div><label>下一步</label><input id="f-next" value="'+(app?app.nextStep:'')+'" placeholder="如：等待面试通知"></div></div></div>'
     +'<div class="form-group"><label>备注</label><textarea id="f-notes" placeholder="补充信息...">'+(app?app.notes:'')+'</textarea></div>'
@@ -624,6 +626,7 @@ function saveApp(editId){
     applyDate:document.getElementById('f-date').value||new Date().toISOString().slice(0,10),
     stage:document.getElementById('f-stage').value,
     nextStep:document.getElementById('f-next').value.trim(),
+    url:document.getElementById('f-url').value.trim(),
     notes:document.getElementById('f-notes').value.trim()
   };
   if(editId){

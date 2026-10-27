@@ -70,7 +70,7 @@ textarea{resize:vertical;min-height:60px}
 .card-tag.date{background:#f1f5f9;color:#64748b}
 .card-tag.stagnant-tag{background:#fef3c7;color:#d97706}
 .card-next{margin-top:8px;font-size:12px;color:#3b82f6;font-weight:500;padding:4px 0}
-.card-actions{display:flex;gap:6px;margin-top:8px}
+.card-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .card-actions button{font-size:11px;padding:4px 10px;border-radius:6px;min-height:28px}
 .stagnant-badge{position:absolute;top:8px;right:8px;font-size:10px;background:#fef3c7;color:#d97706;padding:2px 6px;border-radius:4px;font-weight:600}
 
@@ -466,6 +466,7 @@ function createCardEl(app){
   if(app.nextStep){var nx=document.createElement('div');nx.className='card-next';nx.textContent='下一步: '+app.nextStep;card.appendChild(nx)}
   if(app.url){var urlDiv=document.createElement('div');urlDiv.className='card-next';urlDiv.style.color='#8b5cf6';var urlLink=document.createElement('a');urlLink.href=app.url;urlLink.target='_blank';urlLink.rel='noopener';urlLink.textContent='投递链接';urlLink.style.cssText='color:#8b5cf6;text-decoration:underline;font-size:12px';urlLink.addEventListener('click',function(e){e.stopPropagation()});urlDiv.appendChild(urlLink);card.appendChild(urlDiv)}
   var actions=document.createElement('div');actions.className='card-actions';
+  var editBtn=document.createElement('button');editBtn.className='btn-secondary';editBtn.textContent='编辑';editBtn.addEventListener('click',function(e){e.stopPropagation();openAppModal(app.id)});actions.appendChild(editBtn);
   var revBtn=document.createElement('button');revBtn.className='btn-secondary';revBtn.textContent='复盘';
   revBtn.addEventListener('click',function(e){e.stopPropagation();showCompanyReviews(app.id)});
   actions.appendChild(revBtn);
@@ -592,6 +593,7 @@ function renderReviewList(){
     if(rev.improvements){var s3=document.createElement('div');s3.className='review-section';var l3=document.createElement('div');l3.className='label';l3.textContent='没答好的地方';var c3=document.createElement('div');c3.className='content';c3.textContent=rev.improvements;s3.appendChild(l3);s3.appendChild(c3);card.appendChild(s3)}
     if(rev.questionTypes&&rev.questionTypes.length>0){var tags=document.createElement('div');tags.className='review-tags';rev.questionTypes.forEach(function(t){var tag=document.createElement('span');tag.className='review-tag '+t;tag.textContent=QUESTION_TYPE_LABELS[t]||t;tags.appendChild(tag)});card.appendChild(tags)}
     var delRow=document.createElement('div');delRow.style.cssText='margin-top:10px;text-align:right';
+    var editBtn=document.createElement('button');editBtn.className='btn-secondary';editBtn.textContent='编辑';editBtn.style.marginRight='8px';editBtn.addEventListener('click',function(){openReviewModal(rev.id)});delRow.appendChild(editBtn);
     var delBtn=document.createElement('button');delBtn.className='btn-danger';delBtn.textContent='删除';
     delBtn.addEventListener('click',function(){deleteRecords('reviews',rev.id)});
     delRow.appendChild(delBtn);card.appendChild(delRow);
@@ -613,7 +615,7 @@ function renderOffers(){
   if(state.offers.length===0){wrap.innerHTML='<div class="empty-state"><p>暂无Offer记录，点击上方按钮添加</p></div>';renderWeightPanel();return}
   var table=document.createElement('table');table.className='offer-table';
   var thead=document.createElement('thead');var hr=document.createElement('tr');
-  ['排名','公司','岗位','城市','月薪','月数','公积金','年包','强度','成长','综合分'].forEach(function(h){var th=document.createElement('th');th.textContent=h;hr.appendChild(th)});
+  ['排名','公司','岗位','城市','月薪','月数','公积金','年包','强度','成长','综合分','操作'].forEach(function(h){var th=document.createElement('th');th.textContent=h;hr.appendChild(th)});
   thead.appendChild(hr);table.appendChild(thead);
   var w=state.weights;var wTotal=w.salary+w.housing+w.intensity+w.growth;if(wTotal===0)wTotal=1;
   var maxSalary=0;state.offers.forEach(function(o){var a=calcAnnual(o);if(a>maxSalary)maxSalary=a});
@@ -646,7 +648,7 @@ function renderOffers(){
     var tdSc=document.createElement('td');tdSc.className='score-cell';tdSc.textContent=item.weightedScore.toFixed(1);tdSc.style.color='#3b82f6';tr.appendChild(tdSc);
     var tdDel=document.createElement('td');var delBtn=document.createElement('button');delBtn.className='btn-danger';delBtn.textContent='删除';
     delBtn.addEventListener('click',function(){deleteRecords('offers',o.id)});
-    tdDel.appendChild(delBtn);tr.appendChild(tdDel);
+    var editBtn=document.createElement('button');editBtn.className='btn-secondary';editBtn.textContent='编辑';editBtn.style.marginRight='8px';editBtn.addEventListener('click',function(){openOfferModal(o.id)});tdDel.appendChild(editBtn);tdDel.appendChild(delBtn);tr.appendChild(tdDel);
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);wrap.appendChild(table);
@@ -686,18 +688,19 @@ function openAppModal(editId){
   var channelOpts='';
   CHANNELS.forEach(function(c){var sel=app&&app.channel===c?' selected':'';channelOpts+='<option value="'+c+'"'+sel+'>'+c+'</option>'});
   var html='<h3>'+(app?'编辑投递':'新建投递')+'</h3>'
-    +'<div class="form-group"><label>公司名称</label><input id="f-company" value="'+(app?app.company:'')+'" placeholder="如：A银行"></div>'
-    +'<div class="form-group"><div class="form-row"><div><label>岗位</label><input id="f-position" value="'+(app?app.position:'')+'" placeholder="如：产品经理"></div>'
-    +'<div><label>城市</label><input id="f-city" value="'+(app?app.city:'')+'" placeholder="如：上海"></div></div></div>'
+    +'<div class="form-group"><label>公司名称</label><input id="f-company" value="'+escapeHTML(app?app.company:'')+'" placeholder="如：A银行"></div>'
+    +'<div class="form-group"><div class="form-row"><div><label>岗位</label><input id="f-position" value="'+escapeHTML(app?app.position:'')+'" placeholder="如：产品经理"></div>'
+    +'<div><label>城市</label><input id="f-city" value="'+escapeHTML(app?app.city:'')+'" placeholder="如：上海"></div></div></div>'
     +'<div class="form-group"><div class="form-row"><div><label>投递渠道</label><select id="f-channel">'+channelOpts+'</select></div>'
-    +'<div><label>投递日期</label><input type="date" id="f-date" value="'+(app?app.applyDate:'')+'"></div></div></div>'
-    +'<div class="form-group"><label>投递网址</label><input id="f-url" type="url" value="'+(app&&app.url?app.url:'')+'" placeholder="如：https://career.example.com/job/123"></div>'
+    +'<div><label>投递日期</label><input type="date" id="f-date" value="'+escapeHTML(app?app.applyDate:'')+'"></div></div></div>'
+    +'<div class="form-group"><label>投递网址</label><input id="f-url" type="url" value="'+escapeHTML(app&&app.url?app.url:'')+'" placeholder="如：https://career.example.com/job/123"></div>'
     +'<div class="form-group"><div class="form-row"><div><label>当前阶段</label><select id="f-stage">'+stageOpts+'</select></div>'
-    +'<div><label>下一步</label><input id="f-next" value="'+(app?app.nextStep:'')+'" placeholder="如：等待面试通知"></div></div></div>'
-    +'<div class="form-group"><label>备注</label><textarea id="f-notes" placeholder="补充信息...">'+(app?app.notes:'')+'</textarea></div>'
+    +'<div><label>下一步</label><input id="f-next" value="'+escapeHTML(app?app.nextStep:'')+'" placeholder="如：等待面试通知"></div></div></div>'
+    +'<div class="form-group"><label>备注</label><textarea id="f-notes" placeholder="补充信息...">'+escapeHTML(app?app.notes:'')+'</textarea></div>'
     +'<div class="form-actions"><button class="btn-secondary" onclick="closeModal()">取消</button>'
-    +'<button class="btn-primary" onclick="saveApp(\''+(app?app.id:'')+'\')">保存</button></div>';
+    +'<button class="btn-primary" id="save-app-button">保存</button></div>';
   openModal(html);
+  document.getElementById('save-app-button').addEventListener('click',function(){saveApp(app?app.id:'')});
 }
 function saveApp(editId){
   var company=document.getElementById('f-company').value.trim();
@@ -715,7 +718,8 @@ function saveApp(editId){
   };
   if(editId){
     var app=state.applications.find(function(a){return a.id===editId});
-    if(app)Object.assign(app,data);
+    if(!app){notifySave('该投递记录已不存在',true);return}Object.assign(app,data);
+    state.offers.forEach(function(o){if(o.applicationId===app.id){o.company=app.company;o.position=app.position;o.city=app.city}});
   }else{
     data.id=genId();data.events=[];
     state.applications.push(data);
@@ -727,13 +731,18 @@ function deleteApp(id){
   deleteRecords('applications',id);
 }
 
-function openReviewModal(){
+var editingReviewId='',editingOfferId='';
+function escapeHTML(value){return String(value==null?'':value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function openReviewModal(editId){
+  var review=editId?state.reviews.find(function(r){return r.id===editId}):null;
+  if(editId&&!review){notifySave('该复盘记录已不存在',true);return}
+  editingReviewId=review?review.id:'';
   if(state.applications.length===0){alert('请先添加投递记录');return}
   var appOpts='';
-  state.applications.forEach(function(a){appOpts+='<option value="'+a.id+'">'+a.company+' - '+a.position+'</option>'});
+  state.applications.forEach(function(a){appOpts+='<option value="'+escapeHTML(a.id)+'">'+escapeHTML(a.company)+' - '+escapeHTML(a.position)+'</option>'});
   var typeChecks='';
   QUESTION_TYPES.forEach(function(t){typeChecks+='<label style="margin-right:12px;font-weight:normal"><input type="checkbox" value="'+t+'" class="f-qtype" style="width:auto;margin-right:4px">'+QUESTION_TYPE_LABELS[t]+'</label>'});
-  var html='<h3>新建面试复盘</h3>'
+  var html='<h3>'+(review?'编辑面试复盘':'新建面试复盘')+'</h3>'
     +'<div class="form-group"><label>关联投递</label><select id="f-appid">'+appOpts+'</select></div>'
     +'<div class="form-group"><div class="form-row"><div><label>轮次</label><input id="f-round" placeholder="如：一面、二面"></div>'
     +'<div><label>面试日期</label><input type="date" id="f-rdate" value=""></div></div></div>'
@@ -744,6 +753,11 @@ function openReviewModal(){
     +'<div class="form-actions"><button class="btn-secondary" onclick="closeModal()">取消</button>'
     +'<button class="btn-primary" onclick="saveReview()">保存</button></div>';
   openModal(html);
+  if(review){
+    var fields={'f-appid':'applicationId','f-round':'round','f-rdate':'date','f-questions':'questions','f-answers':'answers','f-improve':'improvements'};
+    Object.keys(fields).forEach(function(id){document.getElementById(id).value=review[fields[id]]||''});
+    document.querySelectorAll('.f-qtype').forEach(function(cb){cb.checked=(review.questionTypes||[]).indexOf(cb.value)!==-1});
+  }
 }
 function saveReview(){
   var appId=document.getElementById('f-appid').value;
@@ -752,21 +766,25 @@ function saveReview(){
   var types=[];
   document.querySelectorAll('.f-qtype:checked').forEach(function(cb){types.push(cb.value)});
   var rev={
-    id:genId(),applicationId:appId,round:round,
+    id:editingReviewId||genId(),applicationId:appId,round:round,
     date:document.getElementById('f-rdate').value||new Date().toISOString().slice(0,10),
     questions:document.getElementById('f-questions').value.trim(),
     answers:document.getElementById('f-answers').value.trim(),
     improvements:document.getElementById('f-improve').value.trim(),
     questionTypes:types
   };
-  state.reviews.push(rev);if(!saveData())return;closeModal();renderReviews();
+  if(editingReviewId){var existing=state.reviews.find(function(r){return r.id===editingReviewId});if(!existing){notifySave('记录不存在，请重新打开',true);return}Object.assign(existing,rev)}else{state.reviews.push(rev)}
+  if(!saveData())return;closeModal();renderReviews();
 }
 
-function openOfferModal(){
+function openOfferModal(editId){
+  var offer=editId?state.offers.find(function(o){return o.id===editId}):null;
+  if(editId&&!offer){notifySave('该 Offer 已不存在',true);return}
+  editingOfferId=offer?offer.id:'';
   if(state.applications.length===0){alert('请先添加投递记录');return}
   var appOpts='';
-  state.applications.forEach(function(a){appOpts+='<option value="'+a.id+'" data-company="'+a.company+'" data-position="'+a.position+'" data-city="'+a.city+'">'+a.company+' - '+a.position+'</option>'});
-  var html='<h3>添加Offer</h3>'
+  state.applications.forEach(function(a){appOpts+='<option value="'+escapeHTML(a.id)+'" data-company="'+escapeHTML(a.company)+'" data-position="'+escapeHTML(a.position)+'" data-city="'+escapeHTML(a.city)+'">'+escapeHTML(a.company)+' - '+escapeHTML(a.position)+'</option>'});
+  var html='<h3>'+(offer?'编辑Offer':'添加Offer')+'</h3>'
     +'<div class="form-group"><label>关联投递</label><select id="f-off-appid" onchange="fillOfferInfo()">'+appOpts+'</select></div>'
     +'<div class="form-group"><div class="form-row"><div><label>公司</label><input id="f-off-company" readonly></div>'
     +'<div><label>岗位</label><input id="f-off-position" readonly></div></div></div>'
@@ -779,6 +797,10 @@ function openOfferModal(){
     +'<div class="form-actions"><button class="btn-secondary" onclick="closeModal()">取消</button>'
     +'<button class="btn-primary" onclick="saveOffer()">保存</button></div>';
   openModal(html);
+  if(offer){
+    var fields={'f-off-appid':'applicationId','f-off-salary':'monthlySalary','f-off-months':'months','f-off-housing':'housingRatio','f-off-intensity':'intensity','f-off-growth':'growth'};
+    Object.keys(fields).forEach(function(id){document.getElementById(id).value=offer[fields[id]]});
+  }
   fillOfferInfo();
 }
 function fillOfferInfo(){
@@ -794,18 +816,20 @@ function saveOffer(){
   var salary=parseInt(document.getElementById('f-off-salary').value)||0;
   if(!salary){alert('请填写月薪');return}
   var offer={
-    id:genId(),
+    id:editingOfferId||genId(),
     applicationId:document.getElementById('f-off-appid').value,
     company:document.getElementById('f-off-company').value,
     position:document.getElementById('f-off-position').value,
     city:document.getElementById('f-off-city').value,
     monthlySalary:salary,
     months:parseInt(document.getElementById('f-off-months').value)||12,
-    housingRatio:parseFloat(document.getElementById('f-off-housing').value)||0.12,
+    housingRatio:document.getElementById('f-off-housing').value===''?0.12:parseFloat(document.getElementById('f-off-housing').value),
     intensity:parseInt(document.getElementById('f-off-intensity').value)||3,
     growth:parseInt(document.getElementById('f-off-growth').value)||3
   };
-  state.offers.push(offer);if(!saveData())return;closeModal();renderOffers();
+  if(!Number.isFinite(offer.housingRatio)||offer.housingRatio<0||offer.monthlySalary<=0||offer.months<1||offer.intensity<1||offer.intensity>5||offer.growth<1||offer.growth>5){alert('请填写有效的薪资、月数、公积金比例和 1–5 的评分');return}
+  if(editingOfferId){var existing=state.offers.find(function(o){return o.id===editingOfferId});if(!existing){notifySave('记录不存在，请重新打开',true);return}Object.assign(existing,offer)}else{state.offers.push(offer)}
+  if(!saveData())return;closeModal();renderOffers();
 }
 
 /* SECTION: init */
